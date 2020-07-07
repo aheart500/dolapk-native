@@ -7,6 +7,7 @@ import { ApolloClient } from "apollo-client";
 import { ApolloProvider } from "@apollo/react-hooks";
 import Login from "./screens/Login";
 import Home from "./screens/Home";
+import AddOrder from "./screens/AddOrder";
 
 const Stack = createStackNavigator();
 const client = new ApolloClient({
@@ -31,6 +32,17 @@ export default function App() {
             component={Home}
             options={{
               headerLeft: () => null,
+              headerTintColor: "#000",
+              headerStyle: {
+                backgroundColor: "#ffff40",
+              },
+            }}
+          />
+          <Stack.Screen
+            name="AddOrder"
+            component={AddOrder}
+            options={{
+              title: "Add Order",
               headerTintColor: "#000",
               headerStyle: {
                 backgroundColor: "#ffff40",

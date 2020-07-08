@@ -1,16 +1,19 @@
-import React, { useReducer } from "react";
+import React, { useReducer, useRef } from "react";
 import {
   View,
   StyleSheet,
   Text,
   TextInput,
-  FlatList,
   Button,
   KeyboardAvoidingView,
   Alert,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useMutation } from "@apollo/react-hooks";
 import { ADD_ORDER } from "../graphQueries";
+import { ScrollView } from "react-native-gesture-handler";
+
 const initialState = {
   customer_name: "",
   customer_phone: "",
@@ -42,6 +45,20 @@ const AddOrder = ({ navigation }) => {
     notes,
     price,
   } = state;
+  const customerNameInput = useRef();
+  const customerPhoneInput = useRef();
+  const customerAddressInput = useRef();
+  const detailsInput = useRef();
+  const notesInput = useRef();
+  const priceInput = useRef();
+  const refArr = [
+    customerNameInput,
+    customerPhoneInput,
+    customerAddressInput,
+    detailsInput,
+    notesInput,
+    priceInput,
+  ];
   const [addOrder] = useMutation(ADD_ORDER);
   const handleChange = (fieldName, value) => {
     dispatch({ type: "field", fieldName, value });
@@ -61,67 +78,81 @@ const AddOrder = ({ navigation }) => {
       addOrder({ variables: { ...state, price: parseFloat(state.price) } })
         .then((res) => {
           Alert.alert("Saved Order", "Your order is saved successfully");
-          navigation.navigate("Home");
           dispatch({ type: "clearAll" });
+          navigation.navigate("Home");
         })
         .catch((err) => console.log(err));
     }
   };
   return (
-    <KeyboardAvoidingView behavior="height" style={styles.container}>
-      <View style={styles.list}>
+    <TouchableWithoutFeedback
+      onPress={() => {
+        Keyboard.dismiss();
+      }}
+      style={styles.list}
+    >
+      <View style={styles.inner}>
         <Text style={styles.header}>Order Details:</Text>
-        <FlatList
-          style={styles.list}
-          data={[
-            "customer_name",
-            "customer_phone",
-            "customer_address",
-            "details",
-            "notes",
-            "price",
-          ]}
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => {
-            const makeMulti = item === "details";
-            const placeholder = item
-              .split("_")
-              .map((e) => e.replace(/^./gi, (match) => match.toUpperCase()))
-              .join(" ");
-            return (
-              <TextInput
-                placeholder={placeholder}
-                onChangeText={(text) => handleChange(item, text)}
-                style={[styles.textBox, makeMulti ? styles.mutlinear : null]}
-                multiline={makeMulti}
-                numberOfLines={3}
-                keyboardType={item === "price" ? "numeric" : "default"}
-              />
-            );
-          }}
-        />
-        <View style={styles.button}>
-          <Button title="Save Order" onPress={handleSave} />
-        </View>
+        <KeyboardAvoidingView style={styles.container} behavior="height">
+          <ScrollView style={{ flex: 1 }}>
+            {[
+              "customer_name",
+              "customer_phone",
+              "customer_address",
+              "details",
+              "notes",
+              "price",
+            ].map((item, index) => {
+              const makeMulti = item === "details";
+              const placeholder = item
+                .split("_")
+                .map((e) => e.replace(/^./gi, (match) => match.toUpperCase()))
+                .join(" ");
+              return (
+                <TextInput
+                  key={index}
+                  placeholder={placeholder}
+                  onChangeText={(text) => handleChange(item, text)}
+                  style={[styles.textBox, makeMulti ? styles.mutlinear : null]}
+                  autoFocus={index === 0}
+                  multiline={makeMulti}
+                  ref={refArr[index]}
+                  onSubmitEditing={() => {
+                    index !== 5 ? refArr[index + 1].current.focus() : null;
+                  }}
+                  returnKeyType={index === 5 ? "done" : "next"}
+                  numberOfLines={3}
+                  keyboardType={
+                    item === "price"
+                      ? "numeric"
+                      : item === "customer_phone"
+                      ? "phone-pad"
+                      : "default"
+                  }
+                />
+              );
+            })}
+          </ScrollView>
+          <View style={styles.button}>
+            <Button title="Save Order" onPress={handleSave} />
+          </View>
+        </KeyboardAvoidingView>
       </View>
-    </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 5,
-    alignItems: "center",
+    height: "80%",
   },
   list: {
-    width: "100%",
-    marginBottom: 10,
+    flex: 1,
   },
   textBox: {
     width: "95%",
-    height: 30,
-    paddingVertical: 5,
+    height: 40,
+    padding: 10,
     marginLeft: "2.5%",
     marginRight: "2.5%",
     borderBottomWidth: 1,
@@ -131,15 +162,20 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   mutlinear: {
-    height: 70,
+    height: 80,
   },
   header: {
     fontSize: 20,
-    marginTop: 5,
+    margin: 5,
     alignSelf: "flex-start",
   },
   button: {
-    marginTop: 10,
+    marginVertical: 15,
+    marginHorizontal: 10,
+  },
+  inner: {
+    flex: 1,
+    width: "100%",
   },
 });
 

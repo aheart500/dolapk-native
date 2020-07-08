@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { StyleSheet, Text, View, TextInput, Button, Alert } from "react-native";
 
 export default function Login({ navigation }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const passwordInput = useRef();
   const handleSubmit = () => {
     if (password !== "" && username !== "") {
       if (username === "nasser" && password === "123") {
@@ -26,15 +27,21 @@ export default function Login({ navigation }) {
       <Text style={styles.headerText}> Dolapk</Text>
       <TextInput
         value={username}
+        autoFocus={true}
         placeholder="Username"
         onChangeText={(t) => setUsername(t)}
         style={styles.textBox}
+        onSubmitEditing={() => passwordInput.current.focus()}
+        returnKeyType="next"
       />
       <TextInput
         value={password}
         placeholder="Password"
+        secureTextEntry={true}
         onChangeText={(t) => setPassword(t)}
+        onSubmitEditing={handleSubmit}
         style={[styles.textBox, styles.lastTextBox]}
+        ref={passwordInput}
       />
       <Button title="Login" onPress={handleSubmit} />
     </View>

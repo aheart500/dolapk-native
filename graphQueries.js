@@ -17,6 +17,24 @@ export const ALL_ORDERS = gql`
   }
 `;
 
+export const LAST_ORDERS = gql`
+  query lastOrders($limit: Int!, $cursor: ID) {
+    lastOrders(limit: $limit, cursor: $cursor) {
+      id
+      customer {
+        name
+        phone
+        address
+      }
+      details
+      notes
+      price
+      finished
+      cancelled
+    }
+  }
+`;
+
 export const ADD_ORDER = gql`
   mutation addOrder(
     $customer_name: String!

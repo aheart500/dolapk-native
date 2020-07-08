@@ -7,11 +7,12 @@ import {
   StyleSheet,
   FlatList,
 } from "react-native";
-import { useQuery, useLazyQuery } from "@apollo/react-hooks";
-import { ALL_ORDERS, LAST_ORDERS } from "../graphQueries";
+import { useQuery } from "@apollo/react-hooks";
+import { LAST_ORDERS } from "../graphQueries";
 
 const Home = ({ navigation }) => {
   const [orders, setOrders] = useState([]);
+
   const { data, loading, error, refetch } = useQuery(LAST_ORDERS, {
     variables: { limit: 10 },
   });
@@ -19,7 +20,9 @@ const Home = ({ navigation }) => {
   useEffect(() => {
     if (data && orders.length === 0) setOrders(data.lastOrders);
   }, [data]);
+
   const ordersIds = orders.map((order) => order.id);
+
   const refresh = () => {
     refetch({ cursor: null })
       .then(({ data }) => {
@@ -29,6 +32,18 @@ const Home = ({ navigation }) => {
         ]);
       })
       .catch((err) => console.log(err));
+  };
+
+  const loadMore = () => {
+    orders.length > 0
+      ? refetch({ cursor: orders[orders.length - 1].id })
+          .then((res) => {
+            res.data?.lastOrders.length > 0
+              ? setOrders([...orders, ...res.data.lastOrders])
+              : null;
+          })
+          .catch((err) => console.log(err))
+      : null;
   };
   if (loading && orders.length === 0) {
     return <ActivityIndicator size="large" color="#0000ff" />;
@@ -42,17 +57,7 @@ const Home = ({ navigation }) => {
         style={styles.flatList}
         data={orders}
         onRefresh={() => refresh()}
-        onEndReached={() =>
-          orders.length > 0
-            ? refetch({ cursor: orders[orders.length - 1].id })
-                .then((res) => {
-                  res.data?.lastOrders.length > 0
-                    ? setOrders([...orders, ...res.data.lastOrders])
-                    : null;
-                })
-                .catch((err) => console.log(err))
-            : null
-        }
+        onEndReached={() => loadMore()}
         onEndReachedThreshold={0.9}
         refreshing={orders.length === loading}
         keyExtractor={(item) => item.id}
@@ -72,7 +77,7 @@ const Home = ({ navigation }) => {
           return (
             <TouchableOpacity
               style={styles.card}
-              onPress={() => console.log("dehk")}
+              onPress={() => navigation.navigate("Order", item)}
             >
               <Text style={styles.cardHeader}>{item.customer.name}</Text>
               <Text style={styles.cardSub}>{item.customer.address}</Text>

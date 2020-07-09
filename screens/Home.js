@@ -1,90 +1,33 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  ActivityIndicator,
-  TouchableOpacity,
-  StyleSheet,
-  FlatList,
-} from "react-native";
-import { useQuery } from "@apollo/react-hooks";
-import { LAST_ORDERS } from "../graphQueries";
+import React from "react";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 
 const Home = ({ navigation }) => {
-  const [orders, setOrders] = useState([]);
-
-  const { data, loading, error, refetch } = useQuery(LAST_ORDERS, {
-    variables: { limit: 10 },
-  });
-
-  useEffect(() => {
-    if (data && orders.length === 0) setOrders(data.lastOrders);
-  }, [data]);
-
-  const ordersIds = orders.map((order) => order.id);
-
-  const refresh = () => {
-    refetch({ cursor: null })
-      .then(({ data }) => {
-        setOrders([
-          ...data.lastOrders.filter((order) => !ordersIds.includes(order.id)),
-          ...orders,
-        ]);
-      })
-      .catch((err) => console.log(err));
-  };
-
-  const loadMore = () => {
-    orders.length > 0
-      ? refetch({ cursor: orders[orders.length - 1].id })
-          .then((res) => {
-            res.data?.lastOrders.length > 0
-              ? setOrders([...orders, ...res.data.lastOrders])
-              : null;
-          })
-          .catch((err) => console.log(err))
-      : null;
-  };
-  if (loading && orders.length === 0) {
-    return <ActivityIndicator size="large" color="#0000ff" />;
-  }
-  if (error) {
-    return <Text> ERROR</Text>;
-  }
   return (
     <View style={styles.container}>
-      <FlatList
-        style={styles.flatList}
-        data={orders}
-        onRefresh={() => refresh()}
-        onEndReached={() => loadMore()}
-        onEndReachedThreshold={0.9}
-        refreshing={orders.length === loading}
-        keyExtractor={(item) => item.id}
-        ListFooterComponent={() => {
-          if (loading) {
-            return (
-              <ActivityIndicator
-                style={styles.loader}
-                size="large"
-                color="#0000ff"
-              />
-            );
-          }
-          return null;
-        }}
-        renderItem={({ item }) => {
-          return (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => navigation.navigate("Order", item)}
-            >
-              <Text style={styles.cardHeader}>{item.customer.name}</Text>
-              <Text style={styles.cardSub}>{item.customer.address}</Text>
-            </TouchableOpacity>
-          );
-        }}
-      />
+      <TouchableOpacity
+        onPress={() => navigation.navigate("List", { all: true })}
+        style={styles.Card}
+      >
+        <Text style={styles.CardText}>ALL</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => navigation.navigate("List", { waiting: true })}
+        style={styles.Card}
+      >
+        <Text style={styles.CardText}>Waiting</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => navigation.navigate("List", { finished: true })}
+        style={styles.Card}
+      >
+        <Text style={styles.CardText}>Finished</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => navigation.navigate("List", { cancelled: true })}
+        style={styles.Card}
+      >
+        <Text style={styles.CardText}>Cancelled</Text>
+      </TouchableOpacity>
       <TouchableOpacity
         style={styles.fab}
         onPress={() => navigation.navigate("AddOrder")}
@@ -98,6 +41,13 @@ const Home = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  Card: {
+    backgroundColor: "white",
+    padding: 10,
+  },
+  CardText: {
+    fontSize: 20,
   },
   fab: {
     position: "absolute",
@@ -114,19 +64,6 @@ const styles = StyleSheet.create({
   fabText: {
     fontSize: 40,
     color: "black",
-  },
-  flatList: {},
-  card: {
-    backgroundColor: "white",
-    padding: 5,
-    marginVertical: 5,
-    marginHorizontal: 5,
-  },
-  cardHeader: {
-    fontSize: 20,
-  },
-  loader: {
-    marginVertical: 10,
   },
 });
 export default Home;

@@ -9,6 +9,7 @@ import Login from "./screens/Login";
 import Home from "./screens/Home";
 import AddOrder from "./screens/AddOrder";
 import Order from "./screens/Order";
+import List from "./screens/List";
 
 const Stack = createStackNavigator();
 const client = new ApolloClient({
@@ -33,6 +34,16 @@ export default function App() {
             component={Home}
             options={{
               headerLeft: () => null,
+              headerTintColor: "#000",
+              headerStyle: {
+                backgroundColor: "#ffff40",
+              },
+            }}
+          />
+          <Stack.Screen
+            name="List"
+            component={List}
+            options={{
               headerTintColor: "#000",
               headerStyle: {
                 backgroundColor: "#ffff40",

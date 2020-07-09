@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Text,
   View,
@@ -6,22 +6,129 @@ import {
   Switch,
   ScrollView,
   TouchableOpacity,
+  Alert,
+  BackHandler,
 } from "react-native";
+
+import { useMutation } from "@apollo/react-hooks";
+import {
+  FINISH_ORDER,
+  UNFINISH_ORDER,
+  CANCEL_ORDER,
+  UNCANCEL_ORDER,
+  DELETE_ORDER,
+} from "../graphQueries";
+import { HeaderBackButton } from "@react-navigation/stack";
+
 const Order = ({ navigation, route }) => {
-  const order = route.params;
+  const order = route.params.order;
   const [finished, setFinished] = useState(order.finished);
   const [cancel, setCancel] = useState(order.cancelled);
-  const toggleFinish = () => {
-    setFinished(!finished);
-  };
-  const toggleCancel = () => {
-    setCancel(!cancel);
-  };
+  const [finishOrder] = useMutation(FINISH_ORDER);
+  const [unFinishOrder] = useMutation(UNFINISH_ORDER);
+  const [cancelOrder] = useMutation(CANCEL_ORDER);
+  const [unCancelOrder] = useMutation(UNCANCEL_ORDER);
+  const [deleteOrder] = useMutation(DELETE_ORDER);
 
-  console.log(order);
+  useEffect(() => {
+    const handleBack = () => {
+      navigation.navigate("List", {
+        [route.params.list]: true,
+        edit: true,
+        order: {
+          ...route.params.order,
+          finished: finished,
+          cancelled: cancel,
+        },
+      });
+      return true;
+    };
+    navigation.setOptions({
+      headerLeft: () => <HeaderBackButton onPress={handleBack} />,
+    });
+    BackHandler.addEventListener("hardwareBackPress", handleBack);
+    return () =>
+      BackHandler.removeEventListener("hardwareBackPress", handleBack);
+  }, [finished, cancel, order]);
 
   let alignRight = false;
   if (/[\u0600-\u06FF]/.test(order.customer.name)) alignRight = true;
+
+  const toggleFinish = () => {
+    if (!finished)
+      finishOrder({ variables: { id: order.id } })
+        .then((res) =>
+          Alert.alert(
+            `${alignRight ? "تسليم الطلب" : "Finish order"}`,
+            `${alignRight ? "تم تسليم الطلب" : res.data.finishOrder}`
+          )
+        )
+        .catch((err) => console.log(err));
+    if (finished)
+      unFinishOrder({ variables: { id: order.id } })
+        .then((res) =>
+          Alert.alert(
+            `${alignRight ? "تسليم الطلب" : "Finish order"}`,
+            `${alignRight ? "تم إلغاء تسليم الطلب" : res.data.unFinishOrder}`
+          )
+        )
+        .catch((err) => console.log(err));
+    setFinished(!finished);
+  };
+  const toggleCancel = () => {
+    if (!cancel)
+      cancelOrder({ variables: { id: order.id } })
+        .then((res) =>
+          Alert.alert(
+            `${alignRight ? "إلغاء الطلب" : "Cancel order"}`,
+            `${alignRight ? "تم إلغاء الطلب" : res.data.cancelOrder}`
+          )
+        )
+        .catch((err) => console.log(err));
+    if (cancel)
+      unCancelOrder({ variables: { id: order.id } })
+        .then((res) =>
+          Alert.alert(
+            `${alignRight ? "إلغاء الطلب" : "Cancel order"}`,
+            `${alignRight ? "تمت إعادة الطلب" : res.data.UnCancelOrder}`
+          )
+        )
+        .catch((err) => console.log(err));
+    setCancel(!cancel);
+  };
+  const Delete = () => {
+    deleteOrder({ variables: { id: order.id } })
+      .then((res) =>
+        Alert.alert(
+          `${alignRight ? "حذف الطلب" : "Delete order"}`,
+          `${alignRight ? "تم حذف الطلب" : res.data.deleteOrder}`
+        )
+      )
+      .catch((err) => console.log(err));
+    navigation.navigate("Home", { delete: true, id: order.id });
+  };
+  const handleDelete = () => {
+    Alert.alert(
+      `${alignRight ? "حذف الطلب" : "Delete Order"}`,
+      `${
+        alignRight
+          ? `هل انت متأكد أنك تريد حذف طلب "${order.customer.name}"؟`
+          : `Are you sure you want to delete "${order.customer.name}'s"\ order?`
+      }`,
+      [
+        {
+          text: alignRight ? "نعم احذف" : "Yeah delete",
+          style: "default",
+          onPress: () => Delete(),
+        },
+        {
+          text: alignRight ? "لا" : "Nah",
+          style: "cancel",
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <ScrollView style={styles.inner}>
@@ -87,7 +194,11 @@ const Order = ({ navigation, route }) => {
               : `${cancel ? "Cancelled" : "Active"}`}
           </Text>
         </View>
-        <TouchableOpacity style={styles.button} activeOpacity={0.5}>
+        <TouchableOpacity
+          style={styles.button}
+          activeOpacity={0.5}
+          onPress={() => navigation.navigate("AddOrder", { edit: true, order })}
+        >
           <Text style={styles.buttonText}>
             {" "}
             {alignRight ? "تعديل الطلب" : "Edit Order"}
@@ -96,6 +207,7 @@ const Order = ({ navigation, route }) => {
         <TouchableOpacity
           style={[styles.button, styles.delete]}
           activeOpacity={0.5}
+          onPress={() => handleDelete()}
         >
           <Text style={styles.buttonText}>
             {" "}

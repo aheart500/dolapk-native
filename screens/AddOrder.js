@@ -11,7 +11,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { useMutation } from "@apollo/react-hooks";
-import { ADD_ORDER } from "../graphQueries";
+import { ADD_ORDER, EDIT_ORDER } from "../graphQueries";
 import { ScrollView } from "react-native-gesture-handler";
 
 const initialState = {
@@ -20,7 +20,7 @@ const initialState = {
   customer_address: "",
   details: "",
   notes: "",
-  price: 0.0,
+  price: "",
 };
 
 const reducer = (state, action) => {
@@ -35,8 +35,21 @@ const reducer = (state, action) => {
   }
 };
 
-const AddOrder = ({ navigation }) => {
-  const [state, dispatch] = useReducer(reducer, initialState);
+const AddOrder = ({ navigation, route }) => {
+  const [state, dispatch] = useReducer(
+    reducer,
+    route.params && route.params.edit
+      ? {
+          customer_name: route.params.order.customer.name,
+          customer_phone: route.params.order.customer.phone,
+          customer_address: route.params.order.customer.address,
+          details: route.params.order.details,
+          notes: route.params.order.notes,
+          price: `${route.params.order.price}`,
+        }
+      : initialState
+  );
+
   const {
     customer_name,
     customer_phone,
@@ -60,6 +73,8 @@ const AddOrder = ({ navigation }) => {
     priceInput,
   ];
   const [addOrder] = useMutation(ADD_ORDER);
+  const [editOrder] = useMutation(EDIT_ORDER);
+
   const handleChange = (fieldName, value) => {
     dispatch({ type: "field", fieldName, value });
   };
@@ -68,20 +83,37 @@ const AddOrder = ({ navigation }) => {
       (customer_name === "" || customer_phone === "" || customer_address === "",
       details === "",
       notes === "",
-      price === 0.0)
+      price === "")
     ) {
       Alert.alert(
         "Missing value",
         "Make sure you entered all the required values"
       );
     } else {
-      addOrder({ variables: { ...state, price: parseFloat(state.price) } })
-        .then((res) => {
-          Alert.alert("Saved Order", "Your order is saved successfully");
-          dispatch({ type: "clearAll" });
-          navigation.navigate("Home");
+      if (route.params && route.params.edit) {
+        editOrder({
+          variables: {
+            ...state,
+            price: parseFloat(state.price),
+            id: route.params.order.id,
+          },
         })
-        .catch((err) => console.log(err));
+          .then((res) => {
+            Alert.alert("Edit order", "Your order is updated successfully");
+            dispatch({ type: "clearAll" });
+            navigation.navigate("Order", { order: res.data.editOrder });
+          })
+          .catch((err) => console.log(err))
+          .finally(() => (route.params = {}));
+      } else {
+        addOrder({ variables: { ...state, price: parseFloat(state.price) } })
+          .then((res) => {
+            Alert.alert("Saved order", "Your order is saved successfully");
+            dispatch({ type: "clearAll" });
+            navigation.navigate("Home");
+          })
+          .catch((err) => console.log(err));
+      }
     }
   };
   return (
@@ -115,6 +147,7 @@ const AddOrder = ({ navigation }) => {
                   onChangeText={(text) => handleChange(item, text)}
                   style={[styles.textBox, makeMulti ? styles.mutlinear : null]}
                   autoFocus={index === 0}
+                  value={state[item]}
                   multiline={makeMulti}
                   ref={refArr[index]}
                   onSubmitEditing={() => {

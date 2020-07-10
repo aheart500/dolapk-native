@@ -1,18 +1,19 @@
-import React, { useReducer, useRef } from "react";
+import React, { useReducer, useRef, useState } from "react";
 import {
   View,
   StyleSheet,
   Text,
-  TextInput,
   Button,
   KeyboardAvoidingView,
   Alert,
   Keyboard,
   TouchableWithoutFeedback,
+  Switch,
 } from "react-native";
 import { useMutation } from "@apollo/react-hooks";
 import { ADD_ORDER, EDIT_ORDER } from "../graphQueries";
 import { ScrollView } from "react-native-gesture-handler";
+import { Input } from "react-native-elements";
 
 const initialState = {
   customer_name: "",
@@ -36,6 +37,8 @@ const reducer = (state, action) => {
 };
 
 const AddOrder = ({ navigation, route }) => {
+  const [arabic, setArabic] = useState(false);
+  const [errors, setErrors] = useState([]);
   const [state, dispatch] = useReducer(
     reducer,
     route.params && route.params.edit
@@ -72,23 +75,33 @@ const AddOrder = ({ navigation, route }) => {
     notesInput,
     priceInput,
   ];
-  const [addOrder] = useMutation(ADD_ORDER);
-  const [editOrder] = useMutation(EDIT_ORDER);
+  const [addOrder, { loading: addLoading }] = useMutation(ADD_ORDER);
+  const [editOrder, { loading: editLoading }] = useMutation(EDIT_ORDER);
 
   const handleChange = (fieldName, value) => {
     dispatch({ type: "field", fieldName, value });
   };
+
   const handleSave = () => {
+    setErrors([]);
     if (
-      (customer_name === "" || customer_phone === "" || customer_address === "",
-      details === "",
-      notes === "",
-      price === "")
+      !customer_name ||
+      !customer_phone ||
+      !customer_address ||
+      !details ||
+      !price
     ) {
       Alert.alert(
-        "Missing value",
-        "Make sure you entered all the required values"
+        arabic ? "حقول فارغة" : "Missing fields",
+        arabic
+          ? "تأكد من إدخال جميع القيم المطلوبة"
+          : "Make sure you entered all the required values"
       );
+      Object.keys(state).forEach((name) => {
+        if (state[name] === "" || state[name] === " ") {
+          name === "notes" ? null : setErrors((prev) => [...prev, name]);
+        }
+      });
     } else {
       if (route.params && route.params.edit) {
         editOrder({
@@ -99,7 +112,12 @@ const AddOrder = ({ navigation, route }) => {
           },
         })
           .then((res) => {
-            Alert.alert("Edit order", "Your order is updated successfully");
+            Alert.alert(
+              arabic ? "تعديل الطلب" : "Edit order",
+              arabic
+                ? "تم تعديل الطلب بنجاح"
+                : "Your order is updated successfully"
+            );
             dispatch({ type: "clearAll" });
             navigation.navigate("Order", { order: res.data.editOrder });
           })
@@ -108,7 +126,10 @@ const AddOrder = ({ navigation, route }) => {
       } else {
         addOrder({ variables: { ...state, price: parseFloat(state.price) } })
           .then((res) => {
-            Alert.alert("Saved order", "Your order is saved successfully");
+            Alert.alert(
+              arabic ? "حفظ الطلب" : "Saved order",
+              arabic ? "تم حفظ الطلب بنجاح" : "Your order is saved successfully"
+            );
             dispatch({ type: "clearAll" });
             navigation.navigate("Home");
           })
@@ -124,7 +145,13 @@ const AddOrder = ({ navigation, route }) => {
       style={styles.list}
     >
       <View style={styles.inner}>
-        <Text style={styles.header}>Order Details:</Text>
+        <View style={[styles.switchBox]}>
+          <Text style={styles.switchText}>Arabic?</Text>
+          <Switch value={arabic} onValueChange={() => setArabic(!arabic)} />
+        </View>
+        <Text style={[styles.header, { textAlign: arabic ? "right" : "left" }]}>
+          {arabic ? "تفاصيل الطلب:" : "Order Details:"}
+        </Text>
         <KeyboardAvoidingView style={styles.container} behavior="height">
           <ScrollView style={{ flex: 1 }}>
             {[
@@ -135,19 +162,53 @@ const AddOrder = ({ navigation, route }) => {
               "notes",
               "price",
             ].map((item, index) => {
-              const makeMulti = item === "details";
-              const placeholder = item
-                .split("_")
-                .map((e) => e.replace(/^./gi, (match) => match.toUpperCase()))
-                .join(" ");
+              const makeMulti = [
+                "details",
+                "notes",
+                "customer_address",
+              ].includes(item);
+              let placeholder = arabic
+                ? item === "customer_name"
+                  ? "اسم العميل"
+                  : item === "customer_phone"
+                  ? "رقم الهاتف"
+                  : item === "customer_address"
+                  ? "العنوان"
+                  : item === "details"
+                  ? "تفاصيل الطلب"
+                  : item === "notes"
+                  ? "ملاحظات"
+                  : "السعر"
+                : item
+                    .split("_")
+                    .map((e) =>
+                      e.replace(/^./gi, (match) => match.toUpperCase())
+                    )
+                    .join(" ");
+
               return (
-                <TextInput
+                <Input
                   key={index}
-                  placeholder={placeholder}
+                  required={item !== "notes"}
+                  placeholder={
+                    arabic
+                      ? `من فضلك أدخل ${placeholder}`
+                      : `Please enter ${item.split("_").join(" ")}`
+                  }
+                  label={placeholder}
                   onChangeText={(text) => handleChange(item, text)}
-                  style={[styles.textBox, makeMulti ? styles.mutlinear : null]}
+                  style={[
+                    styles.textBox,
+                    makeMulti ? styles.mutlinear : null,
+                    { textAlign: arabic ? "right" : "left" },
+                  ]}
                   autoFocus={index === 0}
                   value={state[item]}
+                  errorMessage={
+                    errors.includes(item)
+                      ? `${arabic ? "مطلوب*" : "*Required"}`
+                      : null
+                  }
                   multiline={makeMulti}
                   ref={refArr[index]}
                   onSubmitEditing={() => {
@@ -167,7 +228,17 @@ const AddOrder = ({ navigation, route }) => {
             })}
           </ScrollView>
           <View style={styles.button}>
-            <Button title="Save Order" onPress={handleSave} />
+            <Button
+              disabled={editLoading || addLoading}
+              title={
+                editLoading || addLoading
+                  ? `${arabic ? "جاري الحفظ..." : "Saving..."}`
+                  : route.params && route.params.edit
+                  ? `${arabic ? "تحديث الطلب" : "Update Order"}`
+                  : `${arabic ? "حفظ الطلب" : "Save Order"}`
+              }
+              onPress={handleSave}
+            />
           </View>
         </KeyboardAvoidingView>
       </View>
@@ -177,30 +248,35 @@ const AddOrder = ({ navigation, route }) => {
 
 const styles = StyleSheet.create({
   container: {
-    height: "80%",
+    flex: 1,
+  },
+  switchBox: {
+    marginVertical: 15,
+    alignSelf: "center",
+    flexDirection: "row",
+  },
+  switchText: {
+    marginHorizontal: 10,
+    fontSize: 15,
   },
   list: {
     flex: 1,
   },
   textBox: {
     width: "95%",
-    height: 40,
     padding: 10,
     marginLeft: "2.5%",
     marginRight: "2.5%",
     borderBottomWidth: 1,
     marginBottom: 5,
     fontSize: 20,
-    textAlign: "left",
     textAlignVertical: "top",
   },
-  mutlinear: {
-    height: 80,
-  },
+  mutlinear: {},
   header: {
     fontSize: 20,
-    margin: 5,
-    alignSelf: "flex-start",
+    marginVertical: 10,
+    marginHorizontal: 4,
   },
   button: {
     marginVertical: 15,

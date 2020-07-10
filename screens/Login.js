@@ -1,13 +1,28 @@
-import React, { useState, useRef } from "react";
-import { StyleSheet, Text, View, TextInput, Button, Alert } from "react-native";
+import React, { useState, useRef, useContext } from "react";
+import {
+  StyleSheet,
+  Text,
+  View,
+  Button,
+  Alert,
+  ImageBackground,
+} from "react-native";
+import { Input } from "react-native-elements";
+import UserContext from "../Contexts/User/UserContext";
 
 export default function Login({ navigation }) {
+  const { userState, Login } = useContext(UserContext);
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const passwordInput = useRef();
+  if (userState.isLoggedIn) {
+    navigation.navigate("Home");
+  }
   const handleSubmit = () => {
     if (password !== "" && username !== "") {
-      if (username === "nasser" && password === "123") {
+      if (username === "test" && password === "test123") {
+        Login();
         navigation.navigate("Home");
       } else {
         Alert.alert(
@@ -18,32 +33,41 @@ export default function Login({ navigation }) {
     } else {
       Alert.alert(
         "Wrong credintials",
-        "You should provide at least your username or password"
+        "You should provide at least your username and password"
       );
     }
   };
   return (
     <View style={styles.container}>
-      <Text style={styles.headerText}> Dolapk</Text>
-      <TextInput
-        value={username}
-        autoFocus={true}
-        placeholder="Username"
-        onChangeText={(t) => setUsername(t)}
-        style={styles.textBox}
-        onSubmitEditing={() => passwordInput.current.focus()}
-        returnKeyType="next"
-      />
-      <TextInput
-        value={password}
-        placeholder="Password"
-        secureTextEntry={true}
-        onChangeText={(t) => setPassword(t)}
-        onSubmitEditing={handleSubmit}
-        style={[styles.textBox, styles.lastTextBox]}
-        ref={passwordInput}
-      />
-      <Button title="Login" onPress={handleSubmit} />
+      <ImageBackground
+        source={require("../assets/back1.jpg")}
+        style={styles.background}
+      >
+        <View style={styles.inner}>
+          <Text style={styles.headerText}>Dolapk</Text>
+          <Input
+            label="Username"
+            value={username}
+            autoFocus={true}
+            placeholder="Please enter your username"
+            onChangeText={(t) => setUsername(t)}
+            style={styles.textBox}
+            onSubmitEditing={() => passwordInput.current.focus()}
+            returnKeyType="next"
+          />
+          <Input
+            value={password}
+            label="Password"
+            placeholder="Please enter your password"
+            secureTextEntry={true}
+            onChangeText={(t) => setPassword(t)}
+            onSubmitEditing={handleSubmit}
+            style={[styles.textBox, styles.lastTextBox]}
+            ref={passwordInput}
+          />
+          <Button title="Login" onPress={handleSubmit} />
+        </View>
+      </ImageBackground>
     </View>
   );
 }
@@ -51,9 +75,18 @@ export default function Login({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffff40",
+  },
+  background: {
+    flex: 1,
+    width: "100%",
     justifyContent: "center",
     alignItems: "center",
+  },
+  inner: {
+    borderRadius: 15,
+    backgroundColor: "rgba(247, 203, 82,0.8)",
+    padding: 15,
+    width: "90%",
   },
   headerText: {
     fontSize: 20,

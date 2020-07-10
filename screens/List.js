@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -39,6 +39,21 @@ const List = ({ navigation, route }) => {
     variables: { limit: 10 },
     fetchPolicy: "network-only",
   });
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: route.params
+        ? `${
+            route.params.cancelled
+              ? "قائمة الطلبات الملغية"
+              : route.params.finished
+              ? "قائمة الطلبات المنتهية"
+              : route.params.waiting
+              ? "قائمة الطلبات الحالية"
+              : "قائمة جميع الطلبات"
+          }`
+        : "قائمة",
+    });
+  }, []);
   useEffect(() => {
     if (data && orders.length === 0) setOrders(data[queryResult]);
   }, [data]);
@@ -91,37 +106,58 @@ const List = ({ navigation, route }) => {
   }
 
   if (loading && orders.length === 0) {
-    return <ActivityIndicator size="large" color="#0000ff" />;
+    return (
+      <ActivityIndicator
+        size="large"
+        style={{ marginVertical: 10 }}
+        color="#0000ff"
+      />
+    );
   }
   if (error) {
-    return <Text> ERROR</Text>;
+    return (
+      <Text style={{ margin: 10, color: "red", fontSize: 20 }}>
+        {" "}
+        Network Error.
+      </Text>
+    );
   }
   return (
     <View style={styles.container}>
+      <Text style={{ alignSelf: "center", margin: 5 }}>
+        <Text style={{ color: "#eb4034" }}>Red</Text> for cancelled.
+        <Text style={{ color: "#7bbf5e" }}> Green</Text> for done.
+      </Text>
       <FlatList
         style={styles.flatList}
         data={filter(orders)}
         onRefresh={() => refresh()}
         onEndReached={() => loadMore()}
-        onEndReachedThreshold={0.98}
+        onEndReachedThreshold={0.5}
         refreshing={orders.length === loading}
         keyExtractor={(item) => item.id}
         ListFooterComponent={() => {
-          if (loading) {
-            return (
-              <ActivityIndicator
-                style={styles.loader}
-                size="large"
-                color="#0000ff"
-              />
-            );
-          }
-          return null;
+          return data && data[queryResult].length > 0 ? (
+            <ActivityIndicator
+              style={styles.loader}
+              size="large"
+              color="#0000ff"
+            />
+          ) : null;
         }}
         renderItem={({ item }) => {
+          let arabic = false;
+          if (/[\u0600-\u06FF]/.test(item.customer.name)) arabic = true;
           return (
             <TouchableOpacity
-              style={styles.card}
+              style={[
+                styles.card,
+                item.cancelled
+                  ? styles.cancelled
+                  : item.finished
+                  ? styles.finished
+                  : styles.waiting,
+              ]}
               onPress={() =>
                 navigation.navigate("Order", {
                   order: item,
@@ -131,6 +167,9 @@ const List = ({ navigation, route }) => {
             >
               <Text style={styles.cardHeader}>{item.customer.name}</Text>
               <Text style={styles.cardSub}>{item.customer.address}</Text>
+              <Text
+                style={{ textAlign: arabic ? "left" : "right" }}
+              >{`${item.price} EGP`}</Text>
             </TouchableOpacity>
           );
         }}
@@ -148,6 +187,7 @@ const List = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#edeff5",
   },
   fab: {
     position: "absolute",
@@ -156,19 +196,19 @@ const styles = StyleSheet.create({
     height: 60,
     width: 60,
     borderRadius: 60 / 2,
-    backgroundColor: "#ffff40",
+    backgroundColor: "#83a0f7",
     elevation: 5,
     justifyContent: "center",
     alignItems: "center",
   },
   fabText: {
     fontSize: 40,
-    color: "black",
+    color: "white",
   },
   flatList: {},
   card: {
-    backgroundColor: "white",
-    padding: 5,
+    borderRadius: 10,
+    padding: 8,
     marginVertical: 5,
     marginHorizontal: 5,
   },
@@ -177,6 +217,15 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginVertical: 10,
+  },
+  finished: {
+    backgroundColor: "#7bbf5e",
+  },
+  cancelled: {
+    backgroundColor: "#eb4034",
+  },
+  waiting: {
+    backgroundColor: "white",
   },
 });
 export default List;

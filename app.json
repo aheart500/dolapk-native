@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "dolapk",
+    "name": "Dolapk",
     "slug": "dolapk",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "splash": {
@@ -13,11 +13,15 @@
     "updates": {
       "fallbackToCacheTimeout": 0
     },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.nassor.dolapk",
+      "buildNumber": "1.0.1"
+    },
+    "android": {
+      "package": "com.nassor.dolapk",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"

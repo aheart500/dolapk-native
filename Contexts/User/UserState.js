@@ -3,37 +3,57 @@ import UserReducer from "./UserReducer";
 import React, { useReducer, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-community/async-storage";
 import { View, ActivityIndicator } from "react-native";
-
+import { useMutation } from "@apollo/react-hooks";
+import { LOGIN } from "../../GraphQL/User";
 export default function UserState({ children }) {
   const [loading, setLoading] = useState(true);
   const initialState = {
     isLoggedIn: false,
     name: "",
+    img: "",
+    token: "",
   };
+  const [GraphLogin] = useMutation(LOGIN);
   useEffect(() => {
-    AsyncStorage.getItem("isLoggedIn")
-      .then((res) => (JSON.parse(res) ? dispatch({ type: "LOGIN" }) : null))
+    AsyncStorage.getItem("loggedUser")
+      .then((res) => JSON.parse(res))
+      .then((res) =>
+        res
+          ? dispatch({
+              type: "LOGIN",
+              name: res.name,
+              token: res.token,
+              img: res.img,
+            })
+          : null
+      )
       .catch((err) => console.log(err))
       .finally(() => setLoading(false));
   }, []);
 
   const [state, dispatch] = useReducer(UserReducer, initialState);
-  const Login = async () => {
-    try {
-      await AsyncStorage.setItem("isLoggedIn", JSON.stringify(true));
-    } catch (e) {
-      console.log(e);
-    }
-
-    dispatch({ type: "LOGIN" });
+  const Login = async (username, password) => {
+    const response = await GraphLogin({
+      variables: { username, password },
+    });
+    const { name, value: token, img } = response.data.login;
+    await AsyncStorage.setItem(
+      "loggedUser",
+      JSON.stringify({ name, token, img })
+    );
+    dispatch({
+      type: "LOGIN",
+      name: name,
+      token: token,
+      img: img,
+    });
   };
   const Logout = async () => {
     try {
-      await AsyncStorage.setItem("isLoggedIn", JSON.stringify(false));
+      await AsyncStorage.removeItem("loggedUser");
     } catch (e) {
       console.log(e);
     }
-
     dispatch({ type: "LOGOUT" });
   };
 

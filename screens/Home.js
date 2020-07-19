@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import React, { useContext, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -7,13 +7,36 @@ import {
   ScrollView,
   Button,
 } from "react-native";
-
+import { Avatar } from "react-native-elements";
 import UserContext from "../Contexts/User/UserContext";
 const Home = ({ navigation }) => {
   const { userState, Logout } = useContext(UserContext);
   if (!userState.isLoggedIn) {
     navigation.navigate("Login");
   }
+  useLayoutEffect(() => {
+    if (userState.isLoggedIn) {
+      navigation.setOptions({
+        headerLeft: () => (
+          <Avatar
+            containerStyle={{
+              marginLeft: 5,
+            }}
+            rounded
+            size="small"
+            source={{
+              uri:
+                userState.name === "Omar Adel"
+                  ? require("../assets/omarAdel.jpeg")
+                  : userState.img,
+            }}
+          />
+        ),
+        title: userState.name,
+      });
+    }
+  }, []);
+
   return (
     <View style={styles.container}>
       <ScrollView>

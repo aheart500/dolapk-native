@@ -11,18 +11,33 @@ import AddOrder from "./screens/AddOrder";
 import Order from "./screens/Order";
 import List from "./screens/List";
 import UserState from "./Contexts/User/UserState";
+import { setContext } from "apollo-link-context";
+import AsyncStorage from "@react-native-community/async-storage";
+import { Avatar } from "react-native-elements";
+const authLink = setContext(async (_, { headers }) => {
+  let token = await AsyncStorage.getItem("loggedUser");
+
+  return {
+    headers: {
+      ...headers,
+      authorization: token ? `bearer ${JSON.parse(token).token}` : null,
+    },
+  };
+});
+const httpLink = new HttpLink({
+  uri: "http://dolapk1.herokuapp.com/graphql",
+});
 const Stack = createStackNavigator();
+
 const client = new ApolloClient({
   cache: new InMemoryCache(),
-  link: new HttpLink({
-    uri: "http://dolapk.herokuapp.com/graphql",
-  }),
+  link: authLink.concat(httpLink),
 });
 
 export default function App() {
   return (
-    <UserState>
-      <ApolloProvider client={client}>
+    <ApolloProvider client={client}>
+      <UserState>
         <NavigationContainer>
           <Stack.Navigator initialRouteName="Login">
             <Stack.Screen
@@ -76,7 +91,7 @@ export default function App() {
             />
           </Stack.Navigator>
         </NavigationContainer>
-      </ApolloProvider>
-    </UserState>
+      </UserState>
+    </ApolloProvider>
   );
 }

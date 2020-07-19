@@ -8,37 +8,38 @@ import {
   FlatList,
 } from "react-native";
 import { useQuery } from "@apollo/react-hooks";
-import {
-  LAST_ORDERS,
-  LAST_CANCELLED_ORDERS,
-  LAST_FINISHED_ORDERS,
-  LAST_WAITING_ORDERS,
-} from "../graphQueries";
-
+import { LAST_ORDERS } from "../GraphQL/Orders";
+import { SearchBar } from "react-native-elements";
+import Toolbar from "../components/Toolbar";
 const List = ({ navigation, route }) => {
-  let query = LAST_ORDERS;
-  let queryResult = "lastOrders";
+  let category = "";
   if (route.params) {
-    query = route.params.cancelled
-      ? LAST_CANCELLED_ORDERS
+    category = route.params.cancelled
+      ? "cancelled"
       : route.params.finished
-      ? LAST_FINISHED_ORDERS
+      ? "finished"
       : route.params.waiting
-      ? LAST_WAITING_ORDERS
-      : LAST_ORDERS;
-    queryResult = route.params.cancelled
-      ? "lastCancelledOrders"
-      : route.params.finished
-      ? "lastFinsiedOrders"
-      : route.params.waiting
-      ? "lastWaitingOrders"
-      : "lastOrders";
+      ? "waiting"
+      : "";
   }
   const [orders, setOrders] = useState([]);
-  const { data, loading, error, refetch } = useQuery(query, {
-    variables: { limit: 10 },
-    fetchPolicy: "network-only",
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selected, setSelected] = useState([]);
+  const [search, setSearch] = useState("");
+  const { data, loading, error, refetch, called } = useQuery(LAST_ORDERS, {
+    variables: { limit: 10, category },
   });
+  const handleSearch = (text) => {
+    setSearch(text);
+    refetch({ cursor: null, search: text === "" ? "" : text })
+      .then((res) => {
+        if (!res.data) return;
+
+        setOrders(res.data.lastOrders);
+      })
+      .catch((err) => console.log(err));
+  };
+
   useLayoutEffect(() => {
     navigation.setOptions({
       title: route.params
@@ -55,35 +56,33 @@ const List = ({ navigation, route }) => {
     });
   }, []);
   useEffect(() => {
-    if (data && orders.length === 0) setOrders(data[queryResult]);
+    if (data && orders.length === 0) setOrders(data.lastOrders);
   }, [data]);
-  const filter = (arr) => {
-    return arr
-      ? arr.filter((order) => {
-          if (route.params.all) return true;
-          if (route.params.finished) return order.finished;
-          if (route.params.waiting) return !order.finished;
-          if (route.params.cancelled) return order.cancelled;
-        })
-      : [];
-  };
+  useEffect(() => {
+    if (selected.length > 0) {
+      setSelectionMode(true);
+    } else {
+      setSelectionMode(false);
+    }
+  }, [selected]);
+
   const refresh = () => {
     refetch({ cursor: null })
       .then((res) => {
         if (!res.data) return;
 
-        setOrders(filter(res.data[queryResult]));
+        setOrders(res.data.lastOrders);
       })
       .catch((err) => console.log(err));
   };
-
+  const isSelected = (order) => selected.includes(order.id);
   const loadMore = () => {
     orders.length > 0
       ? refetch({ cursor: orders[orders.length - 1].id })
           .then((res) => {
             res.data
-              ? res.data[queryResult].length > 0
-                ? setOrders(filter([...orders, ...res.data[queryResult]]))
+              ? res.data.lastOrders.length > 0
+                ? setOrders([...orders, ...res.data.lastOrders])
                 : null
               : null;
           })
@@ -105,7 +104,7 @@ const List = ({ navigation, route }) => {
     route.params = { ...route.params, edit: false };
   }
 
-  if (loading && orders.length === 0) {
+  if (loading && !called) {
     return (
       <ActivityIndicator
         size="large"
@@ -114,30 +113,54 @@ const List = ({ navigation, route }) => {
       />
     );
   }
-  if (error) {
-    return (
-      <Text style={{ margin: 10, color: "red", fontSize: 20 }}>
-        {" "}
-        Network Error.
-      </Text>
-    );
-  }
   return (
     <View style={styles.container}>
-      <Text style={{ alignSelf: "center", margin: 5 }}>
-        <Text style={{ color: "#eb4034" }}>Red</Text> for cancelled.
-        <Text style={{ color: "#7bbf5e" }}> Green</Text> for done.
-      </Text>
+      {error && (
+        <Text style={{ margin: 10, color: "red", fontSize: 20 }}>
+          {" "}
+          Network Error.
+        </Text>
+      )}
+      {!selectionMode ? (
+        <Text style={{ alignSelf: "center", margin: 5 }}>
+          <Text style={{ color: "#eb4034" }}>Red</Text> for cancelled.
+          <Text style={{ color: "#7bbf5e" }}> Green</Text> for done.
+        </Text>
+      ) : (
+        <Text style={{ alignSelf: "center", margin: 5 }}>
+          {selected.length} orders selected
+        </Text>
+      )}
+      <Toolbar
+        selected={selected}
+        setSelected={setSelected}
+        refetch={() => refetch({ cursor: null })}
+      />
+
       <FlatList
         style={styles.flatList}
-        data={filter(orders)}
+        data={orders}
         onRefresh={() => refresh()}
         onEndReached={() => loadMore()}
         onEndReachedThreshold={0.5}
         refreshing={orders.length === loading}
+        ListHeaderComponent={
+          <SearchBar
+            placeholder="Search"
+            lightTheme
+            containerStyle={{
+              marginVertical: 10,
+            }}
+            inputStyle={{
+              paddingHorizontal: 5,
+            }}
+            onChangeText={handleSearch}
+            value={search}
+          />
+        }
         keyExtractor={(item) => item.id}
         ListFooterComponent={() => {
-          return data && data[queryResult].length > 0 ? (
+          return data && data.lastOrders.length > 0 ? (
             <ActivityIndicator
               style={styles.loader}
               size="large"
@@ -152,24 +175,37 @@ const List = ({ navigation, route }) => {
             <TouchableOpacity
               style={[
                 styles.card,
-                item.cancelled
+                isSelected(item)
+                  ? styles.selected
+                  : item.cancelled
                   ? styles.cancelled
-                  : item.finished
+                  : item.status === "تم التسليم"
                   ? styles.finished
                   : styles.waiting,
               ]}
+              onLongPress={() => {
+                isSelected(item)
+                  ? setSelected(selected.filter((i) => i !== item.id))
+                  : setSelected(selected.concat(item.id));
+              }}
               onPress={() =>
-                navigation.navigate("Order", {
-                  order: item,
-                  list: route.params ? Object.keys(route.params)[0] : "",
-                })
+                selectionMode
+                  ? isSelected(item)
+                    ? setSelected(selected.filter((i) => i !== item.id))
+                    : setSelected(selected.concat(item.id))
+                  : navigation.navigate("Order", {
+                      order: item,
+                      list: route.params ? Object.keys(route.params)[0] : "",
+                    })
               }
             >
               <Text style={styles.cardHeader}>{item.customer.name}</Text>
               <Text style={styles.cardSub}>{item.customer.address}</Text>
-              <Text
-                style={{ textAlign: arabic ? "left" : "right" }}
-              >{`${item.price} EGP`}</Text>
+              <Text style={{ textAlign: arabic ? "left" : "right" }}>{`${
+                item.price.order
+              } + ${item.price.shipment} = ${
+                item.price.order + item.price.shipment
+              } EGP`}</Text>
             </TouchableOpacity>
           );
         }}
@@ -226,6 +262,9 @@ const styles = StyleSheet.create({
   },
   waiting: {
     backgroundColor: "white",
+  },
+  selected: {
+    backgroundColor: "#fa594d",
   },
 });
 export default List;

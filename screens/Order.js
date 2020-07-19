@@ -9,26 +9,25 @@ import {
   Alert,
   BackHandler,
 } from "react-native";
-
+import { Picker } from "@react-native-community/picker";
 import { useMutation } from "@apollo/react-hooks";
 import {
-  FINISH_ORDER,
-  UNFINISH_ORDER,
-  CANCEL_ORDER,
-  UNCANCEL_ORDER,
-  DELETE_ORDER,
-} from "../graphQueries";
+  UPDATE_ORDERS,
+  CANCEL_ORDERS,
+  UNCANCEL_ORDERS,
+  DELETE_ORDERS,
+} from "../GraphQL/Orders";
 import { HeaderBackButton } from "@react-navigation/stack";
 
 const Order = ({ navigation, route }) => {
   const order = route.params.order;
-  const [finished, setFinished] = useState(order.finished);
+
+  const [status, setStatus] = useState(order.status);
   const [cancel, setCancel] = useState(order.cancelled);
-  const [finishOrder] = useMutation(FINISH_ORDER);
-  const [unFinishOrder] = useMutation(UNFINISH_ORDER);
-  const [cancelOrder] = useMutation(CANCEL_ORDER);
-  const [unCancelOrder] = useMutation(UNCANCEL_ORDER);
-  const [deleteOrder] = useMutation(DELETE_ORDER);
+  const [updateStatus] = useMutation(UPDATE_ORDERS);
+  const [cancelOrder] = useMutation(CANCEL_ORDERS);
+  const [unCancelOrder] = useMutation(UNCANCEL_ORDERS);
+  const [deleteOrder] = useMutation(DELETE_ORDERS);
 
   useEffect(() => {
     const handleBack = () => {
@@ -37,7 +36,7 @@ const Order = ({ navigation, route }) => {
         edit: true,
         order: {
           ...route.params.order,
-          finished: finished,
+          status: status,
           cancelled: cancel,
         },
       });
@@ -49,63 +48,60 @@ const Order = ({ navigation, route }) => {
     BackHandler.addEventListener("hardwareBackPress", handleBack);
     return () =>
       BackHandler.removeEventListener("hardwareBackPress", handleBack);
-  }, [finished, cancel, order]);
+  }, [status, cancel, order]);
 
   let alignRight = false;
   if (/[\u0600-\u06FF]/.test(order.customer.name)) alignRight = true;
 
-  const toggleFinish = () => {
-    if (!finished)
-      finishOrder({ variables: { id: order.id } })
-        .then((res) =>
-          Alert.alert(
-            `${alignRight ? "تسليم الطلب" : "Finish order"}`,
-            `${alignRight ? "تم تسليم الطلب" : res.data.finishOrder}`
-          )
+  const changeStatus = (newStatus) => {
+    updateStatus({
+      variables: { ids: [order.id], status: newStatus },
+    })
+      .then((res) =>
+        Alert.alert(
+          `${alignRight ? "تحديث الحالة" : "Update Status"}`,
+          `${alignRight ? "تم تحديث حالة الطلب" : res.data.updateOrders}`
         )
-        .catch((err) => console.log(err));
-    if (finished)
-      unFinishOrder({ variables: { id: order.id } })
-        .then((res) =>
-          Alert.alert(
-            `${alignRight ? "تسليم الطلب" : "Finish order"}`,
-            `${alignRight ? "تم إلغاء تسليم الطلب" : res.data.unFinishOrder}`
-          )
-        )
-        .catch((err) => console.log(err));
-    setFinished(!finished);
+      )
+      .catch((err) => console.log(err));
   };
+
   const toggleCancel = () => {
     if (!cancel)
-      cancelOrder({ variables: { id: order.id } })
+      cancelOrder({ variables: { ids: [order.id] } })
         .then((res) =>
           Alert.alert(
             `${alignRight ? "إلغاء الطلب" : "Cancel order"}`,
-            `${alignRight ? "تم إلغاء الطلب" : res.data.cancelOrder}`
+            `${alignRight ? "تم إلغاء الطلب" : res.data.cancelOrders}`
           )
         )
         .catch((err) => console.log(err));
     if (cancel)
-      unCancelOrder({ variables: { id: order.id } })
+      unCancelOrder({ variables: { ids: [order.id] } })
         .then((res) =>
           Alert.alert(
             `${alignRight ? "إلغاء الطلب" : "Cancel order"}`,
-            `${alignRight ? "تمت إعادة الطلب" : res.data.UnCancelOrder}`
+            `${alignRight ? "تمت إعادة الطلب" : res.data.unCancelOrders}`
           )
         )
         .catch((err) => console.log(err));
     setCancel(!cancel);
   };
   const Delete = () => {
-    deleteOrder({ variables: { id: order.id } })
+    deleteOrder({ variables: { ids: [order.id] } })
       .then((res) =>
         Alert.alert(
           `${alignRight ? "حذف الطلب" : "Delete order"}`,
-          `${alignRight ? "تم حذف الطلب" : res.data.deleteOrder}`
+          `${alignRight ? "تم حذف الطلب" : res.data.deleteOrders}`
         )
       )
       .catch((err) => console.log(err));
-    navigation.navigate("Home", { delete: true, id: order.id });
+
+    navigation.navigate("List", {
+      [route.params.list]: true,
+      delete: true,
+      id: order.id,
+    });
   };
   const handleDelete = () => {
     Alert.alert(
@@ -128,10 +124,30 @@ const Order = ({ navigation, route }) => {
       ]
     );
   };
-
+  let createdAt = new Date(parseInt(order.created_at))
+    .toString()
+    .replace("GMT+0200 (Eastern European Standard Time)", "")
+    .replace("(EET)", "");
+  let updatedAt = new Date(parseInt(order.updated_at))
+    .toString()
+    .replace("GMT+0200 (Eastern European Standard Time)", "")
+    .replace("(EET)", "");
+  let formedID = `${order.trackID}`;
+  formedID =
+    formedID.length >= 4
+      ? formedID
+      : formedID.length === 3
+      ? `0${formedID}`
+      : formedID.length === 2
+      ? `00${formedID}`
+      : formedID.length === 1
+      ? `000${formedID}`
+      : formedID;
+  formedID = `DP${formedID}`;
   return (
     <View style={styles.container}>
       <ScrollView style={styles.inner}>
+        <Text style={[styles.sub, styles.price, styles.Card]}>{formedID}</Text>
         <View style={[styles.Card, styles.customerCard]}>
           <Text style={styles.header}>{order.customer.name}</Text>
           <Text
@@ -152,28 +168,73 @@ const Order = ({ navigation, route }) => {
             : "No Notes"}
         </Text>
         <Text style={[styles.sub, styles.Card, styles.price]}>
-          {`${order.price} EGP`}
+          {`${order.price.order} + ${order.price.shipment} = ${
+            order.price.order + order.price.shipment
+          } EGP`}
         </Text>
+
         <View
           style={[
             styles.finish,
-            { flexDirection: alignRight ? "row-reverse" : "row" },
+            {
+              flexDirection: alignRight ? "row-reverse" : "row",
+              alignItems: "center",
+            },
             styles.Card,
           ]}
         >
-          <Text style={styles.Status}>
+          <Text
+            style={[
+              styles.Status,
+              { textAlign: alignRight ? "right" : "left" },
+            ]}
+          >
             {alignRight ? "حالة الطلب" : "Status"}
           </Text>
+          <Picker
+            selectedValue={status}
+            style={{
+              height: 50,
+              width: 150,
+            }}
+            onValueChange={(itemValue, itemIndex) => {
+              setStatus(itemValue);
+              changeStatus(itemValue);
+            }}
+          >
+            <Picker.Item
+              label={alignRight ? "قيد المعالجة" : "Processing"}
+              value="قيد المعالجة"
+            />
+            <Picker.Item
+              label={alignRight ? "جاهز للشحن" : "Ready for Shippment"}
+              value="جاهز للشحن"
+            />
+            <Picker.Item
+              label={
+                alignRight ? "تم التسليم للشحن" : "ٌReached shipment office"
+              }
+              value="تم التسليم للشحن"
+            />
+            <Picker.Item
+              label={
+                alignRight ? "جاري توزيع الشحنة" : "Ready for distribution"
+              }
+              value="جاري توزيع الشحنة"
+            />
+            <Picker.Item
+              label={alignRight ? "تم التسليم" : "Delievered"}
+              value="تم التسليم"
+            />
+          </Picker>
 
-          <Switch
-            onValueChange={toggleFinish}
-            value={finished}
-            style={styles.switch}
-          />
-          <Text style={styles.StatusText}>
-            {alignRight
-              ? `${finished ? "تم التسليم" : "في انتظار التسليم"}`
-              : `${finished ? "Delievered" : "Waiting"}`}
+          <Text
+            style={[
+              styles.StatusText,
+              { textAlign: alignRight ? "right" : "left" },
+            ]}
+          >
+            {status}
           </Text>
         </View>
         <View
@@ -183,17 +244,47 @@ const Order = ({ navigation, route }) => {
             styles.Card,
           ]}
         >
-          <Text style={styles.Status}>
+          <Text
+            style={[
+              styles.Status,
+              { textAlign: alignRight ? "right" : "left" },
+            ]}
+          >
             {alignRight ? "ملغي؟" : "Cancelled?"}
           </Text>
 
           <Switch onValueChange={toggleCancel} value={cancel} />
-          <Text style={styles.StatusText}>
+          <Text
+            style={[
+              styles.StatusText,
+              { textAlign: alignRight ? "right" : "left" },
+            ]}
+          >
             {alignRight
               ? `${cancel ? "ملغي" : " فعَّال"}`
               : `${cancel ? "Cancelled" : "Active"}`}
           </Text>
         </View>
+        <Text style={[styles.sub, styles.details, styles.Card]}>
+          {alignRight
+            ? `مُسجل الطلب:  ${order.created_by}`
+            : `Saved by:  ${order.created_by}`}
+        </Text>
+        <Text style={[styles.sub, styles.details, styles.Card]}>
+          {alignRight
+            ? `تاريخ التسجيل:  ${createdAt}`
+            : `Saved at:  ${createdAt}`}
+        </Text>
+        <Text style={[styles.sub, styles.details, styles.Card]}>
+          {alignRight
+            ? `مُعدل الطلب:  ${order.updated_by || ""}`
+            : `Updated by:  ${order.updated_by || ""}`}
+        </Text>
+        <Text style={[styles.sub, styles.details, styles.Card]}>
+          {alignRight
+            ? `تاريخ التعديل:  ${order.updated_by ? updatedAt : ""}`
+            : `Updated at:  ${order.updated_by ? updatedAt : ""}`}
+        </Text>
         <TouchableOpacity
           style={styles.button}
           activeOpacity={0.5}

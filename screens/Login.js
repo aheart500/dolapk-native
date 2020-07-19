@@ -15,16 +15,20 @@ export default function Login({ navigation }) {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const passwordInput = useRef();
   if (userState.isLoggedIn) {
     navigation.navigate("Home");
   }
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    setLoading(true);
     if (password !== "" && username !== "") {
-      if (username === "test" && password === "test123") {
-        Login();
+      try {
+        await Login(username, password);
+
         navigation.navigate("Home");
-      } else {
+      } catch (e) {
+        console.log(e);
         Alert.alert(
           "Wrong credintials",
           "You entered wrong username or password"
@@ -32,10 +36,11 @@ export default function Login({ navigation }) {
       }
     } else {
       Alert.alert(
-        "Wrong credintials",
+        "Missing Fields",
         "You should provide at least your username and password"
       );
     }
+    setLoading(false);
   };
   return (
     <View style={styles.container}>
@@ -65,7 +70,7 @@ export default function Login({ navigation }) {
             style={[styles.textBox, styles.lastTextBox]}
             ref={passwordInput}
           />
-          <Button title="Login" onPress={handleSubmit} />
+          <Button title="Login" onPress={handleSubmit} disabled={loading} />
         </View>
       </ImageBackground>
     </View>

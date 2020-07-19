@@ -1,4 +1,4 @@
-import React, { useReducer, useRef, useState } from "react";
+import React, { useReducer, useRef, useState, useContext } from "react";
 import {
   View,
   StyleSheet,
@@ -11,17 +11,18 @@ import {
   Switch,
 } from "react-native";
 import { useMutation } from "@apollo/react-hooks";
-import { ADD_ORDER, EDIT_ORDER } from "../graphQueries";
+import { ADD_ORDER, EDIT_ORDER } from "../GraphQL/Orders";
 import { ScrollView } from "react-native-gesture-handler";
 import { Input } from "react-native-elements";
-
+import UserContext from "../Contexts/User/UserContext";
 const initialState = {
   customer_name: "",
   customer_phone: "",
   customer_address: "",
   details: "",
   notes: "",
-  price: "",
+  order_price: "",
+  shipment_price: "",
 };
 
 const reducer = (state, action) => {
@@ -37,6 +38,9 @@ const reducer = (state, action) => {
 };
 
 const AddOrder = ({ navigation, route }) => {
+  const {
+    userState: { name },
+  } = useContext(UserContext);
   const [arabic, setArabic] = useState(false);
   const [errors, setErrors] = useState([]);
   const [state, dispatch] = useReducer(
@@ -48,7 +52,8 @@ const AddOrder = ({ navigation, route }) => {
           customer_address: route.params.order.customer.address,
           details: route.params.order.details,
           notes: route.params.order.notes,
-          price: `${route.params.order.price}`,
+          order_price: `${route.params.order.price.order}`,
+          shipment_price: `${route.params.order.price.shipment}`,
         }
       : initialState
   );
@@ -58,22 +63,24 @@ const AddOrder = ({ navigation, route }) => {
     customer_phone,
     customer_address,
     details,
-    notes,
-    price,
+    order_price,
+    shipment_price,
   } = state;
   const customerNameInput = useRef();
   const customerPhoneInput = useRef();
   const customerAddressInput = useRef();
   const detailsInput = useRef();
   const notesInput = useRef();
-  const priceInput = useRef();
+  const orderPriceInput = useRef();
+  const shipmentPriceInput = useRef();
   const refArr = [
     customerNameInput,
     customerPhoneInput,
     customerAddressInput,
     detailsInput,
     notesInput,
-    priceInput,
+    orderPriceInput,
+    shipmentPriceInput,
   ];
   const [addOrder, { loading: addLoading }] = useMutation(ADD_ORDER);
   const [editOrder, { loading: editLoading }] = useMutation(EDIT_ORDER);
@@ -89,8 +96,10 @@ const AddOrder = ({ navigation, route }) => {
       !customer_phone ||
       !customer_address ||
       !details ||
-      !price
+      !order_price ||
+      customer_phone.length !== 11
     ) {
+      let newErrors = [];
       Alert.alert(
         arabic ? "حقول فارغة" : "Missing fields",
         arabic
@@ -99,15 +108,24 @@ const AddOrder = ({ navigation, route }) => {
       );
       Object.keys(state).forEach((name) => {
         if (state[name] === "" || state[name] === " ") {
-          name === "notes" ? null : setErrors((prev) => [...prev, name]);
+          name === "notes"
+            ? null
+            : name === "shipment_price"
+            ? null
+            : newErrors.push(name);
+        }
+        if (customer_phone.length !== 11) {
+          newErrors.push("customer_phone");
         }
       });
+      setErrors(newErrors);
     } else {
       if (route.params && route.params.edit) {
         editOrder({
           variables: {
             ...state,
-            price: parseFloat(state.price),
+            order_price: parseFloat(state.order_price),
+            shipment_price: parseFloat(state.shipment_price),
             id: route.params.order.id,
           },
         })
@@ -119,19 +137,26 @@ const AddOrder = ({ navigation, route }) => {
                 : "Your order is updated successfully"
             );
             dispatch({ type: "clearAll" });
+
             navigation.navigate("Order", { order: res.data.editOrder });
           })
           .catch((err) => console.log(err))
           .finally(() => (route.params = {}));
       } else {
-        addOrder({ variables: { ...state, price: parseFloat(state.price) } })
+        addOrder({
+          variables: {
+            ...state,
+            order_price: parseFloat(state.order_price),
+            shipment_price: parseFloat(state.shipment_price),
+          },
+        })
           .then((res) => {
             Alert.alert(
               arabic ? "حفظ الطلب" : "Saved order",
               arabic ? "تم حفظ الطلب بنجاح" : "Your order is saved successfully"
             );
             dispatch({ type: "clearAll" });
-            navigation.navigate("Home");
+            navigation.goBack();
           })
           .catch((err) => console.log(err));
       }
@@ -160,7 +185,8 @@ const AddOrder = ({ navigation, route }) => {
               "customer_address",
               "details",
               "notes",
-              "price",
+              "order_price",
+              "shipment_price",
             ].map((item, index) => {
               const makeMulti = [
                 "details",
@@ -178,7 +204,9 @@ const AddOrder = ({ navigation, route }) => {
                   ? "تفاصيل الطلب"
                   : item === "notes"
                   ? "ملاحظات"
-                  : "السعر"
+                  : item === "order_price"
+                  ? "سعر الطلب"
+                  : "سعر الشحن"
                 : item
                     .split("_")
                     .map((e) =>
@@ -197,27 +225,32 @@ const AddOrder = ({ navigation, route }) => {
                   }
                   label={placeholder}
                   onChangeText={(text) => handleChange(item, text)}
+                  inputStyle={{ textAlign: arabic ? "right" : "left" }}
                   style={[
                     styles.textBox,
                     makeMulti ? styles.mutlinear : null,
-                    { textAlign: arabic ? "right" : "left" },
+                    ,
                   ]}
                   autoFocus={index === 0}
                   value={state[item]}
                   errorMessage={
-                    errors.includes(item)
+                    item === "customer_phone"
+                      ? arabic
+                        ? "برجاء التأكد من إدخال 11 رقم"
+                        : "Please make sure you entered 11 numbers"
+                      : errors.includes(item)
                       ? `${arabic ? "مطلوب*" : "*Required"}`
                       : null
                   }
                   multiline={makeMulti}
                   ref={refArr[index]}
                   onSubmitEditing={() => {
-                    index !== 5 ? refArr[index + 1].current.focus() : null;
+                    index !== 6 ? refArr[index + 1].current.focus() : null;
                   }}
-                  returnKeyType={index === 5 ? "done" : "next"}
+                  returnKeyType={index === 6 ? "done" : "next"}
                   numberOfLines={3}
                   keyboardType={
-                    item === "price"
+                    item === "order_price" || item === "shipment_price"
                       ? "numeric"
                       : item === "customer_phone"
                       ? "phone-pad"

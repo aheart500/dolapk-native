@@ -202,8 +202,8 @@ const List = ({ navigation, route }) => {
               <Text style={styles.cardHeader}>{item.customer.name}</Text>
               <Text style={styles.cardSub}>{item.customer.address}</Text>
               <Text style={{ textAlign: arabic ? "left" : "right" }}>{`${
-                item.price.order
-              } + ${item.price.shipment} = ${
+                item.price.order || 0
+              } + ${item.price.shipment || 0} = ${
                 item.price.order + item.price.shipment
               } EGP`}</Text>
             </TouchableOpacity>

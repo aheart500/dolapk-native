@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Alert,
   BackHandler,
+  I18nManager,
+  Linking,
 } from "react-native";
 import { Picker } from "@react-native-community/picker";
 import { useMutation } from "@apollo/react-hooks";
@@ -124,6 +126,8 @@ const Order = ({ navigation, route }) => {
       ]
     );
   };
+  const direction_ROW = I18nManager.isRTL ? "row-reverse" : "row";
+  const direction_ROWREVERSE = !I18nManager.isRTL ? "row-reverse" : "row";
   let createdAt = new Date(parseInt(order.created_at))
     .toString()
     .replace("GMT+0200 (Eastern European Standard Time)", "")
@@ -148,7 +152,12 @@ const Order = ({ navigation, route }) => {
     <View style={styles.container}>
       <ScrollView style={styles.inner}>
         <Text style={[styles.sub, styles.price, styles.Card]}>{formedID}</Text>
-        <View style={[styles.Card, styles.customerCard]}>
+        <TouchableOpacity
+          onPress={async () =>
+            await Linking.openURL("tel:" + order.customer.phone)
+          }
+          style={[styles.Card, styles.customerCard]}
+        >
           <Text style={styles.header}>{order.customer.name}</Text>
           <Text
             style={[styles.sub, { textAlign: alignRight ? "right" : "left" }]}
@@ -156,7 +165,7 @@ const Order = ({ navigation, route }) => {
             {order.customer.phone}
           </Text>
           <Text style={styles.sub}>{order.customer.address}</Text>
-        </View>
+        </TouchableOpacity>
         <Text style={[styles.sub, styles.details, styles.Card]}>
           {order.details}
         </Text>
@@ -168,7 +177,7 @@ const Order = ({ navigation, route }) => {
             : "No Notes"}
         </Text>
         <Text style={[styles.sub, styles.Card, styles.price]}>
-          {`${order.price.order} + ${order.price.shipment} = ${
+          {`${order.price.order || 0} + ${order.price.shipment || 0} = ${
             order.price.order + order.price.shipment
           } EGP`}
         </Text>
@@ -177,7 +186,7 @@ const Order = ({ navigation, route }) => {
           style={[
             styles.finish,
             {
-              flexDirection: alignRight ? "row-reverse" : "row",
+              flexDirection: alignRight ? direction_ROWREVERSE : direction_ROW,
               alignItems: "center",
             },
             styles.Card,
@@ -240,7 +249,9 @@ const Order = ({ navigation, route }) => {
         <View
           style={[
             styles.cancel,
-            { flexDirection: alignRight ? "row-reverse" : "row" },
+            {
+              flexDirection: alignRight ? direction_ROWREVERSE : direction_ROW,
+            },
             styles.Card,
           ]}
         >
